@@ -6,47 +6,46 @@ from openpyxl.utils import get_column_letter
 import io
 
 # =========================================================
-# STREAMLIT PAGE CONFIG & MODERN AMBER/DARK SLATE UI
+# STREAMLIT PAGE CONFIG & CLEAN LIGHT WEB UI
 # =========================================================
 st.set_page_config(
-    page_title="Executive Fleet Analytics Engine",
-    page_icon="⚡",
+    page_title="Fleet Mileage Report Generator",
+    page_icon="🚛",
     layout="wide"
 )
 
-# Premium Custom Styling with Amber Accents
+# Original Light Web Dashboard Styling
 st.markdown("""
     <style>
     .main {
-        background-color: #0B0F17;
-        color: #F8FAFC;
+        background-color: #F8FAFC;
+        color: #0F172A;
     }
     .stApp {
-        background-color: #0B0F17;
+        background-color: #F8FAFC;
     }
     .css-1d39121, .stSidebar {
-        background-color: #111827 !important;
-        border-right: 1px solid #1F2937;
+        background-color: #FFFFFF !important;
+        border-right: 1px solid #E2E8F0;
     }
     h1, h2, h3 {
-        color: #FFFFFF !important;
-        font-family: 'Inter', 'Segoe UI', sans-serif;
+        color: #0F172A !important;
+        font-family: 'Segoe UI', sans-serif;
         font-weight: 700;
     }
     .stButton>button {
-        background: linear-gradient(135deg, #F5A623 0%, #D97706 100%);
-        color: #0F172A;
-        font-weight: 700;
+        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+        color: white;
+        font-weight: 600;
         border: none;
         border-radius: 8px;
-        padding: 12px 28px;
-        box-shadow: 0 4px 14px rgba(245, 166, 35, 0.35);
+        padding: 10px 24px;
+        box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);
         transition: all 0.3s ease;
     }
     .stButton>button:hover {
-        background: linear-gradient(135deg, #FFB833 0%, #B45309 100%);
-        box-shadow: 0 6px 20px rgba(245, 166, 35, 0.5);
-        color: #000000;
+        background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%);
+        box-shadow: 0 6px 12px -1px rgba(30, 58, 138, 0.3);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -68,10 +67,7 @@ def parse_period_to_seconds(period_str):
     return 0
 
 def format_seconds_to_hhmmss(total_seconds):
-    """
-    Exact [HH]:MM:SS Formatter
-    Preserves total cumulative hours (e.g., 79:24:00) without rolling over 24 hours.
-    """
+    """Preserves total cumulative hours (e.g., 179:24:00) without 24h rollover."""
     hours = int(total_seconds // 3600)
     minutes = int((total_seconds % 3600) // 60)
     seconds = int(total_seconds % 60)
@@ -131,34 +127,42 @@ def clean_and_parse_input(uploaded_file):
     return df
 
 # =========================================================
-# EXCEL STYLING ENGINE (3D AESTHETIC & HEADER INTEGRATION)
+# EXCEL STYLING ENGINE (PREMIUM HEADER WITH SEPARATE CREDITS ROW)
 # =========================================================
 
-def apply_3d_header_card(ws, title_text, subtitle_text, dev_name="Muhammad Ashaan", rep_name="Ahmad Raza"):
-    """Creates a top Executive Glassmorphic Header with integrated credits."""
-    # Row Height Config
-    ws.row_dimensions[1].height = 42
-    ws.row_dimensions[2].height = 24
-    ws.row_dimensions[3].height = 10  # Spacing Row
+def apply_3d_header_card(ws, title_text, subtitle_text, rep_name="Ahmad Raza", dev_name="Muhammad Ashaan"):
+    """Creates Executive Header Card with Separate Clean Credits Row (Report By -> Dev By)."""
+    ws.row_dimensions[1].height = 36  # Title Row
+    ws.row_dimensions[2].height = 22  # Subtitle Row
+    ws.row_dimensions[3].height = 22  # Separate Credits Row
+    ws.row_dimensions[4].height = 10  # Spacing Row
 
-    # Main Header Banner
+    # 1. Main Header Title (Navy Blue Accent)
     ws.merge_cells('A1:K1')
     t_cell = ws['A1']
     t_cell.value = title_text.upper()
-    t_cell.font = Font(name='Segoe UI', size=14, bold=True, color='FFFFFF')
+    t_cell.font = Font(name='Segoe UI', size=13, bold=True, color='FFFFFF')
     t_cell.fill = PatternFill(start_color='0F172A', end_color='0F172A', fill_type='solid')
     t_cell.alignment = Alignment(horizontal='center', vertical='center')
 
-    # Subtitle with Header Credits Integration
+    # 2. Subtitle Banner (Slate Gray)
     ws.merge_cells('A2:K2')
     s_cell = ws['A2']
-    s_cell.value = f"{subtitle_text}  │  👨‍💻 Dev: {dev_name}  │  📋 Report By: {rep_name}"
-    s_cell.font = Font(name='Segoe UI', size=9.5, bold=True, color='F5A623')  # Amber Accent
+    s_cell.value = subtitle_text
+    s_cell.font = Font(name='Segoe UI', size=9.5, bold=True, color='E2E8F0')
     s_cell.fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
     s_cell.alignment = Alignment(horizontal='center', vertical='center')
 
+    # 3. Dedicated Credits Row (Report By -> Dev By with Amber Accents)
+    ws.merge_cells('A3:K3')
+    c_cell = ws['A3']
+    c_cell.value = f"📋 Report By: {rep_name}     │     👨‍💻 Dev: {dev_name}"
+    c_cell.font = Font(name='Segoe UI', size=9.5, bold=True, color='F5A623')
+    c_cell.fill = PatternFill(start_color='334155', end_color='334155', fill_type='solid')
+    c_cell.alignment = Alignment(horizontal='center', vertical='center')
+
 def build_sunday_report_excel(df, city_name, month_name):
-    """Builds Sunday Working Vehicles Report with 3D Aesthetics."""
+    """Builds Sunday Working Vehicles Excel Sheet."""
     df_valid = df[
         (df['Period'] != '00:00:00') & 
         (df['Period'] != '0:00:00') & 
@@ -171,7 +175,6 @@ def build_sunday_report_excel(df, city_name, month_name):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    thick_top_border = Border(top=Side(style='medium', color='F5A623'))
     grid_border = Border(
         left=Side(style='thin', color='CBD5E1'),
         right=Side(style='thin', color='CBD5E1'),
@@ -189,27 +192,29 @@ def build_sunday_report_excel(df, city_name, month_name):
 
         df_day = df_valid[df_valid['Date_parsed'] == dt].sort_values(by='Distance_num', ascending=False)
 
-        # Apply Top Header Card
+        # Header Integration (Report By -> Dev)
         apply_3d_header_card(
             ws, 
             title_text=f"SUNDAY WORKING VEHICLES MILEAGE REPORT — {city_name}",
-            subtitle_text=f"Date: {dt_str}  │  Month: {month_name}  │  Active Fleet: {len(df_day)} Vehicles"
+            subtitle_text=f"Date: {dt_str}  │  Month: {month_name}  │  Active Fleet: {len(df_day)} Vehicles",
+            rep_name="Ahmad Raza",
+            dev_name="Muhammad Ashaan"
         )
 
         headers = ['Sr #', 'Device ID', 'Reg #', 'Group / Region', 'Vehicle Type', 'Purpose', 'TH Kms', 'TH Time', 'Date', 'Distance (Km)', 'Period (HH:MM:SS)']
-        ws.row_dimensions[4].height = 26
+        ws.row_dimensions[5].height = 26
         
         h_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
         h_font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
 
         for col_idx, h in enumerate(headers, 1):
-            c = ws.cell(row=4, column=col_idx, value=h)
+            c = ws.cell(row=5, column=col_idx, value=h)
             c.fill = h_fill
             c.font = h_font
             c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             c.border = grid_border
 
-        start_row = 5
+        start_row = 6
         total_sec = 0
         for r_idx, (_, row) in enumerate(df_day.iterrows(), start_row):
             ws.row_dimensions[r_idx].height = 21
@@ -268,9 +273,9 @@ def build_sunday_report_excel(df, city_name, month_name):
         tot_val.number_format = '#,##0.00'
         tot_val.border = grid_border
 
-        # Exact [HH]:MM:SS Total Period Formatting (e.g. 79:24:00)
+        # Exact Cumulative Time Format
         tot_p = ws.cell(row=tot_row, column=11, value=format_seconds_to_hhmmss(total_sec))
-        tot_p.font = Font(name='Segoe UI', size=10, bold=True, color='D97706') # Amber Gold
+        tot_p.font = Font(name='Segoe UI', size=10, bold=True, color='D97706')
         tot_p.fill = tot_fill
         tot_p.alignment = Alignment(horizontal='center', vertical='center')
         tot_p.border = grid_border
@@ -289,7 +294,7 @@ def build_sunday_report_excel(df, city_name, month_name):
     return output
 
 def build_evening_report_excel(df, city_name, month_name, target_vehicles):
-    """Builds Evening Shift Report with 0 time period entries & 3D styling."""
+    """Builds Evening Shift Report with 0 time period entries included."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Evening Shift Report"
@@ -302,14 +307,16 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
         bottom=Side(style='thin', color='CBD5E1')
     )
 
-    # Header Card
+    # Top Header Card Integration (Report By -> Dev)
     apply_3d_header_card(
         ws,
         title_text=f"EVENING VEHICLES SHIFT MILEAGE REPORT — {city_name}",
-        subtitle_text=f"Month: {month_name}  │  Target Fleet: {', '.join([v.upper() for v in target_vehicles])}"
+        subtitle_text=f"Month: {month_name}  │  Target Fleet: {', '.join([v.upper() for v in target_vehicles])}",
+        rep_name="Ahmad Raza",
+        dev_name="Muhammad Ashaan"
     )
 
-    current_row = 4
+    current_row = 5
     headers = ['Sr #', 'Device ID', 'Reg #', 'Group / Region', 'Vehicle Type', 'Purpose', 'TH Kms', 'TH Time', 'Date', 'Distance (Km)', 'Period (HH:MM:SS)']
 
     for veh in target_vehicles:
@@ -327,7 +334,7 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
         ws.row_dimensions[current_row].height = 26
         current_row += 1
 
-        # Headers
+        # Table Column Headers
         ws.row_dimensions[current_row].height = 24
         h_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
         h_font = Font(name='Segoe UI', size=9, bold=True, color='FFFFFF')
@@ -412,7 +419,7 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
             tot_val.number_format = '#,##0.00'
             tot_val.border = grid_border
 
-            # Cumulative HH:MM:SS format
+            # Exact Cumulative HH:MM:SS format
             tot_p = ws.cell(row=tot_row, column=11, value=format_seconds_to_hhmmss(v_sec))
             tot_p.font = Font(name='Segoe UI', size=9.5, bold=True, color='D97706')
             tot_p.fill = tot_fill
@@ -421,7 +428,7 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
 
             current_row += 1
 
-        current_row += 2  # Section Spacing
+        current_row += 2  # Spacing
 
     for col in ws.columns:
         col_letter = get_column_letter(col[0].column)
@@ -437,11 +444,11 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
     return output
 
 # =========================================================
-# DASHBOARD UI INTERFACE
+# ORIGINAL LIGHT DASHBOARD WEB INTERFACE
 # =========================================================
 
-st.title("⚡ Fleet Mileage Executive Suite")
-st.markdown("Dynamic 3D-Styled Report Generator & Automated Parsing Engine.")
+st.title("🚛 Fleet Mileage Report Generator")
+st.markdown("Aesthetic & Professional Excel Report Processing Platform.")
 
 st.divider()
 
@@ -451,12 +458,12 @@ with col1:
     st.subheader("⚙️ Control Panel")
     
     uploaded_file = st.file_uploader(
-        "Upload Raw Excel Sheet (.xlsx)",
+        "Upload Monthly Raw Mileage Excel (.xlsx)",
         type=["xlsx", "xls"]
     )
     
     tehsil_choice = st.selectbox(
-        "Select Tehsil / Region",
+        "Select Tehsil / City Name",
         ["Kamoke", "Nowshera Virkan", "Custom"]
     )
     
@@ -475,33 +482,33 @@ with col1:
     else:
         default_vehs = "GBA-915, GBA-917"
 
-    veh_input = st.text_input("Target Evening Fleet (Comma Separated)", value=default_vehs)
+    veh_input = st.text_input("Target Evening Vehicles (Comma Separated)", value=default_vehs)
     target_vehicles = [v.strip() for v in veh_input.split(",") if v.strip()]
 
 with col2:
-    st.subheader("📊 Live Sheet Inspector & Download")
+    st.subheader("📊 Report Preview & Generation")
     
     if uploaded_file is not None:
         try:
             df_clean = clean_and_parse_input(uploaded_file)
             
-            st.success("✅ Dataset Mapped & Parsed Successfully!")
+            st.success("✅ Master Vehicle Mapping Applied & Data Parsed Successfully!")
             
             m1, m2, m3 = st.columns(3)
-            m1.metric("Total Log Rows", len(df_clean))
-            m2.metric("Total Vehicles", df_clean['Reg#'].nunique())
-            m3.metric("Target Fleet", len(target_vehicles))
+            m1.metric("Total Monthly Records", len(df_clean))
+            m2.metric("Active Fleet Vehicles", df_clean['Reg#'].nunique())
+            m3.metric("Evening Vehicles Target", len(target_vehicles))
 
-            st.markdown("##### Cleaned Dataset Preview")
+            st.markdown("##### Cleaned Data Verification (With Dates Intact)")
             st.dataframe(df_clean[['Device', 'Reg#', 'Group', 'Vehicle Type', 'Date', 'Distance', 'Period']].head(10), use_container_width=True)
             
             st.divider()
             
-            st.markdown("### 📥 Download Executive Reports")
+            st.markdown("### 📥 Generated Reports")
             
             c_btn1, c_btn2 = st.columns(2)
             
-            # Sunday Report
+            # 1. Sunday Working Report
             s_filename = f"Mileage Report {month_name} All Sunday Working vehicles report Tehsil {city_name}.xlsx"
             s_bytes = build_sunday_report_excel(df_clean, city_name, month_name)
             
@@ -514,7 +521,7 @@ with col2:
                     use_container_width=True
                 )
                 
-            # Evening Shift Report
+            # 2. Evening Shift Report
             e_filename = f"Mileage report {month_name} evening vehicles shift report tehsil {city_name}.xlsx"
             e_bytes = build_evening_report_excel(df_clean, city_name, month_name, target_vehicles)
             
@@ -528,6 +535,6 @@ with col2:
                 )
 
         except Exception as e:
-            st.error(f"❌ Error during file processing: {str(e)}")
+            st.error(f"❌ Error processing file: {str(e)}")
     else:
-        st.info("👈 Upload your original mileage dataset file to build the sheet.")
+        st.info("👈 Please upload your raw Excel file to generate error-free reports.")
