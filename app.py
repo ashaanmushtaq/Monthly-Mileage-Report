@@ -6,7 +6,7 @@ from openpyxl.utils import get_column_letter
 import io
 
 # =========================================================
-# STREAMLIT PAGE CONFIG & LIGHT AESTHETIC STYLING
+# STREAMLIT PAGE CONFIG & MODERN LIGHT UI STYLING
 # =========================================================
 st.set_page_config(
     page_title="Fleet Mileage Analytics & Report Generator",
@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Light Minimalist UI Styling
+# Executive Light Theme Styling
 st.markdown("""
     <style>
     .main {
@@ -34,24 +34,24 @@ st.markdown("""
         font-weight: 700;
     }
     .stButton>button {
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
         font-weight: 600;
         border: none;
         border-radius: 8px;
         padding: 10px 24px;
-        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);
         transition: all 0.3s ease;
     }
     .stButton>button:hover {
-        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
-        box-shadow: 0 6px 12px -1px rgba(37, 99, 235, 0.3);
+        background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%);
+        box-shadow: 0 6px 12px -1px rgba(30, 58, 138, 0.3);
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# HELPER FUNCTIONS & DATA SANITIZATION
+# HELPER FUNCTIONS & STRICT DATA PARSING
 # =========================================================
 
 def parse_period_to_seconds(period_str):
@@ -74,9 +74,8 @@ def format_seconds_to_hhmm(seconds):
 
 def clean_and_parse_input(uploaded_file):
     """
-    OPTION B IMPLEMENTATION:
-    Reads raw file, sanitizes non-breaking spaces, builds a Master Vehicle Lookup 
-    from complete first rows, and forward-fills missing Reg#, Group, Vehicle Type for all entries.
+    STRICT DATA PARSER & MASTER LOOKUP
+    Extracts complete vehicle metadata and cleans every individual row without date loss.
     """
     df_raw = pd.read_excel(uploaded_file)
     
@@ -91,9 +90,11 @@ def clean_and_parse_input(uploaded_file):
     for col in df.columns:
         df[col] = df[col].astype(str).str.replace('\xa0', '').str.strip()
 
-    # Build Master Mapping Table from non-empty vehicle entries
+    # Create master lookup dictionary for vehicles
     device_map = {}
     reg_map = {}
+
+    invalid_vals = ['', 'nan', 'None', '-']
 
     for _, row in df.iterrows():
         dev = row.get('Device', '').strip()
@@ -104,8 +105,6 @@ def clean_and_parse_input(uploaded_file):
         th_k = row.get('TH Kms', '').strip()
         th_t = row.get('TH Tme', '').strip()
 
-        invalid_vals = ['', 'nan', 'None', '-']
-
         if dev not in invalid_vals and reg not in invalid_vals:
             info = {
                 'Device': dev, 'Reg#': reg, 'Group': grp,
@@ -115,31 +114,25 @@ def clean_and_parse_input(uploaded_file):
             device_map[dev] = info
             reg_map[reg.upper()] = info
 
-    # Apply Forward Fill / Smart Lookup to missing row cells
-    last_known = {}
+    # Fill missing metadata while preserving row integrity
     for idx in df.index:
         dev = df.at[idx, 'Device']
         reg = df.at[idx, 'Reg#']
 
-        # Determine reference vehicle
+        ref = None
         if dev in device_map:
             ref = device_map[dev]
         elif reg.upper() in reg_map:
             ref = reg_map[reg.upper()]
-        elif last_known:
-            ref = last_known
-        else:
-            ref = None
 
         if ref:
-            last_known = ref
             for col in ['Device', 'Reg#', 'Group', 'Vehicle Type', 'Purpose', 'TH Kms', 'TH Tme']:
-                curr_val = df.at[idx, col]
-                if curr_val in ['', 'nan', 'None', '-'] or pd.isna(curr_val):
+                curr = df.at[idx, col]
+                if curr in invalid_vals or pd.isna(curr):
                     df.at[idx, col] = ref.get(col, '')
 
-    # Cast numeric & date formats
-    df['Distance_num'] = pd.to_numeric(df['Distance'], errors='coerce').fillna(0)
+    # Convert distance & time
+    df['Distance_num'] = pd.to_numeric(df['Distance'], errors='coerce').fillna(0.0)
     df['Date_parsed'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Period_seconds'] = df['Period'].apply(parse_period_to_seconds)
     
@@ -149,13 +142,11 @@ def apply_cell_locking_footer(ws, last_row, dev_name="Muhammad Ashaan", rep_name
     """Adds fixed locked cells for Developer and Reporter."""
     foot_row = last_row + 2
     
-    # Dev Credit
     c_dev = ws.cell(row=foot_row, column=1, value=f"Developed By: {dev_name}")
     c_dev.font = Font(name='Segoe UI', size=9, bold=True, color='475569')
     c_dev.alignment = Alignment(horizontal='left', vertical='center')
     c_dev.protection = openpyxl.styles.Protection(locked=True)
     
-    # Report Credit
     c_rep = ws.cell(row=foot_row, column=3, value=f"Report By: {rep_name}")
     c_rep.font = Font(name='Segoe UI', size=9, bold=True, color='475569')
     c_rep.alignment = Alignment(horizontal='left', vertical='center')
@@ -163,7 +154,8 @@ def apply_cell_locking_footer(ws, last_row, dev_name="Muhammad Ashaan", rep_name
 
 
 def build_sunday_report_excel(df, city_name, month_name):
-    """Generates Sunday Working Vehicles Excel with a separate sheet for each Sunday."""
+    """Generates Sunday Working Vehicles Excel Sheet."""
+    # Sunday filters distance > 0
     df_valid = df[
         (df['Period'] != '00:00:00') & 
         (df['Period'] != '0:00:00') & 
@@ -185,27 +177,27 @@ def build_sunday_report_excel(df, city_name, month_name):
 
     for idx, dt in enumerate(dates_to_process, 1):
         dt_obj = pd.to_datetime(dt)
-        dt_str = dt_obj.strftime('%d-%b-%Y')
-        sheet_title = f"Sunday {idx} ({dt_obj.strftime('%b %d')})" if len(sundays) > 0 else f"Day {idx} ({dt_obj.strftime('%b %d')})"
+        dt_str = dt_obj.strftime('%d-%b-%Y') if pd.notnull(dt_obj) else "N/A"
+        sheet_title = f"Sunday {idx} ({dt_obj.strftime('%b %d')})" if len(sundays) > 0 and pd.notnull(dt_obj) else f"Day {idx}"
         
         ws = wb.create_sheet(title=sheet_title[:31])
         ws.views.sheetView[0].showGridLines = True
 
         df_day = df_valid[df_valid['Date_parsed'] == dt].sort_values(by='Distance_num', ascending=False)
 
-        # Title
+        # Title Header
         ws.merge_cells('A1:K1')
         t_cell = ws['A1']
         t_cell.value = f"SUNDAY WORKING VEHICLES MILEAGE REPORT — {city_name.upper()}"
         t_cell.font = Font(name='Segoe UI', size=13, bold=True, color='FFFFFF')
-        t_cell.fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
+        t_cell.fill = PatternFill(start_color='0F172A', end_color='0F172A', fill_type='solid')
         t_cell.alignment = Alignment(horizontal='center', vertical='center')
         ws.row_dimensions[1].height = 38
 
         # Subtitle
         ws.merge_cells('A2:K2')
         s_cell = ws['A2']
-        s_cell.value = f"Date: {dt_str}   |   Month: {month_name}   |   Active Sunday Fleet: {len(df_day)} Vehicles"
+        s_cell.value = f"Date: {dt_str}   |   Month: {month_name}   |   Active Fleet: {len(df_day)} Vehicles"
         s_cell.font = Font(name='Segoe UI', size=9.5, italic=True, color='0284C7')
         s_cell.fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
         s_cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -214,7 +206,7 @@ def build_sunday_report_excel(df, city_name, month_name):
         headers = ['Sr #', 'Device ID', 'Reg #', 'Group / Region', 'Vehicle Type', 'Purpose', 'TH Kms', 'TH Time', 'Date', 'Distance (Km)', 'Period (HH:MM)']
         ws.row_dimensions[4].height = 26
         
-        h_fill = PatternFill(start_color='0F172A', end_color='0F172A', fill_type='solid')
+        h_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
         h_font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
 
         for col_idx, h in enumerate(headers, 1):
@@ -292,7 +284,7 @@ def build_sunday_report_excel(df, city_name, month_name):
         for col in ws.columns:
             col_letter = get_column_letter(col[0].column)
             if col_letter == 'A':
-                ws.column_dimensions[col_letter].width = 12  # Exact 12 width
+                ws.column_dimensions[col_letter].width = 12  # Exact width 12 for Sr#
             else:
                 max_l = max(len(str(cell.value or '')) for cell in col)
                 ws.column_dimensions[col_letter].width = max(max_l + 3, 14)
@@ -305,13 +297,10 @@ def build_sunday_report_excel(df, city_name, month_name):
     return output
 
 def build_evening_report_excel(df, city_name, month_name, target_vehicles):
-    """Generates Evening Shift Report Excel ensuring 100% rows for target vehicles are fetched and mapped."""
-    df_valid = df[
-        (df['Period'] != '00:00:00') & 
-        (df['Period'] != '0:00:00') & 
-        (df['Distance_num'] > 0)
-    ].copy()
-
+    """
+    EVENING SHIFT REPORT
+    Includes 0 time period entries and complete monthly dates for target vehicles.
+    """
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Evening Shift Report"
@@ -324,17 +313,18 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
         bottom=Side(style='thin', color='CBD5E1')
     )
 
+    # Main Header Block
     ws.merge_cells('A1:K1')
     t_cell = ws['A1']
     t_cell.value = f"EVENING VEHICLES SHIFT MILEAGE REPORT — {city_name.upper()}"
     t_cell.font = Font(name='Segoe UI', size=13, bold=True, color='FFFFFF')
-    t_cell.fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
+    t_cell.fill = PatternFill(start_color='0F172A', end_color='0F172A', fill_type='solid')
     t_cell.alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[1].height = 38
 
     ws.merge_cells('A2:K2')
     s_cell = ws['A2']
-    s_cell.value = f"Month Period: {month_name}   |   Target Fleet: {', '.join([v.upper() for v in target_vehicles])}"
+    s_cell.value = f"Month Period: {month_name}   |   Target Evening Fleet: {', '.join([v.upper() for v in target_vehicles])}"
     s_cell.font = Font(name='Segoe UI', size=9.5, italic=True, color='0284C7')
     s_cell.fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
     s_cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -344,18 +334,25 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
     headers = ['Sr #', 'Device ID', 'Reg #', 'Group / Region', 'Vehicle Type', 'Purpose', 'TH Kms', 'TH Time', 'Date', 'Distance (Km)', 'Period (HH:MM)']
 
     for veh in target_vehicles:
-        df_veh = df_valid[df_valid['Reg#'].str.upper() == veh.upper()].sort_values(by='Distance_num', ascending=False)
+        # DO NOT exclude 0 time period or 0 distance entries for evening report!
+        df_veh = df[df['Reg#'].str.upper() == veh.upper()].copy()
+        
+        # Sort by Date if available, else Distance
+        if 'Date_parsed' in df_veh.columns and df_veh['Date_parsed'].notnull().any():
+            df_veh = df_veh.sort_values(by='Date_parsed', ascending=True)
 
+        # Vehicle Section Banner
         ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=11)
-        v_cell = ws.cell(row=current_row, column=1, value=f"VEHICLE REGISTRATION: {veh.upper()}   (Total Monthly Records Fetched: {len(df_veh)})")
+        v_cell = ws.cell(row=current_row, column=1, value=f"VEHICLE REGISTRATION: {veh.upper()}   (Total Monthly Entries: {len(df_veh)})")
         v_cell.font = Font(name='Segoe UI', size=10, bold=True, color='FFFFFF')
         v_cell.fill = PatternFill(start_color='334155', end_color='334155', fill_type='solid')
         v_cell.alignment = Alignment(horizontal='left', vertical='center', indent=1)
         ws.row_dimensions[current_row].height = 25
         current_row += 1
 
+        # Table Column Headers
         ws.row_dimensions[current_row].height = 24
-        h_fill = PatternFill(start_color='0F172A', end_color='0F172A', fill_type='solid')
+        h_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
         h_font = Font(name='Segoe UI', size=9, bold=True, color='FFFFFF')
 
         for col_idx, h in enumerate(headers, 1):
@@ -369,7 +366,7 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
 
         if len(df_veh) == 0:
             ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=11)
-            empty_info = ws.cell(row=current_row, column=1, value="No active evening shift entries recorded for this vehicle in uploaded month.")
+            empty_info = ws.cell(row=current_row, column=1, value="No records found for this vehicle in the uploaded sheet.")
             empty_info.font = Font(name='Segoe UI', size=9, italic=True, color='64748B')
             empty_info.alignment = Alignment(horizontal='center', vertical='center')
             for c in range(1, 12):
@@ -416,6 +413,7 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
 
                 current_row += 1
 
+            # Vehicle Total Row
             tot_row = current_row
             ws.row_dimensions[tot_row].height = 23
             tot_fill = PatternFill(start_color='E2E8F0', end_color='E2E8F0', fill_type='solid')
@@ -445,16 +443,18 @@ def build_evening_report_excel(df, city_name, month_name, target_vehicles):
 
             current_row += 1
 
-        current_row += 2
+        current_row += 2  # Spacing between vehicles
 
+    # Set Column Widths
     for col in ws.columns:
         col_letter = get_column_letter(col[0].column)
         if col_letter == 'A':
-            ws.column_dimensions[col_letter].width = 12
+            ws.column_dimensions[col_letter].width = 12  # Exact 12 Width
         else:
             max_l = max(len(str(cell.value or '')) for cell in col)
             ws.column_dimensions[col_letter].width = max(max_l + 3, 14)
 
+    # Footer Locking
     apply_cell_locking_footer(ws, current_row)
 
     output = io.BytesIO()
@@ -511,14 +511,14 @@ with col2:
         try:
             df_clean = clean_and_parse_input(uploaded_file)
             
-            st.success("✅ Smart Vehicle Forward-Fill Applied & Data Parsed Successfully!")
+            st.success("✅ Master Vehicle Mapping Applied & Data Parsed Successfully!")
             
             m1, m2, m3 = st.columns(3)
             m1.metric("Total Monthly Records", len(df_clean))
-            m2.metric("Active Working Entries", len(df_clean[df_clean['Distance_num'] > 0]))
-            m3.metric("Mapped Fleet Vehicles", df_clean['Reg#'].nunique())
+            m2.metric("Active Fleet Vehicles", df_clean['Reg#'].nunique())
+            m3.metric("Evening Vehicles Target", len(target_vehicles))
 
-            st.markdown("##### Cleaned & Auto-Filled Data Preview")
+            st.markdown("##### Cleaned Data Verification (With Dates Intact)")
             st.dataframe(df_clean[['Device', 'Reg#', 'Group', 'Vehicle Type', 'Date', 'Distance', 'Period']].head(10), use_container_width=True)
             
             st.divider()
@@ -527,6 +527,7 @@ with col2:
             
             c_btn1, c_btn2 = st.columns(2)
             
+            # 1. Sunday Working Report
             s_filename = f"Mileage Report {month_name} All Sunday Working vehicles report Tehsil {city_name}.xlsx"
             s_bytes = build_sunday_report_excel(df_clean, city_name, month_name)
             
@@ -539,6 +540,7 @@ with col2:
                     use_container_width=True
                 )
                 
+            # 2. Evening Shift Report
             e_filename = f"Mileage report {month_name} evening vehicles shift report tehsil {city_name}.xlsx"
             e_bytes = build_evening_report_excel(df_clean, city_name, month_name, target_vehicles)
             
